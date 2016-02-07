@@ -11,14 +11,16 @@ CREATE TABLE Players(
     id INT,
     firstName VARCHAR(15),
     lastName VARCHAR(50),
-    rank INT,
+    wins INT DEFAULT 0,
+    losses INT DEFAULT 0,
+    rank INT DEFAULT null,
     PRIMARY KEY(id));
 
 DROP TABLE IF EXISTS Matches CASCADE;
 CREATE TABLE Matches(
     id INT,
-    winner INT,
-    loser INT,
+    winner INT DEFAULT null,
+    loser INT DEFAULT null,
     round INT,
     FOREIGN KEY(winner) REFERENCES Players(id),
     FOREIGN KEY(loser) REFERENCES Players(id),

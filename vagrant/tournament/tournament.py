@@ -13,17 +13,38 @@ def connect():
 
 def deleteMatches():
     """Remove all the match records from the database."""
-    pass
+    qry = """TRUNCATE Matches CASCADE"""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(qry)
+    cursor.close()
+    conn.commit()
+    conn.close()
+    return (cursor.close and conn.closed)
 
 
 def deletePlayers():
     """Remove all the player records from the database."""
-    pass
+    qry = """TRUNCATE Players CASCADE"""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(qry)
+    cursor.close()
+    conn.commit()
+    conn.close()
+    return (cursor.close and conn.closed)
 
 
 def countPlayers():
     """Returns the number of players currently registered."""
-    pass
+    qry = """SELECT COUNT(*) FROM Players"""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(qry)
+    results = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return results[0]
 
 
 def registerPlayer(name):
@@ -35,7 +56,18 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
-    pass
+    base_qry = """INSERT INTO Players (id, firstname, lastname, wins, losses, rank)
+    VALUES ({p_id}, '{fname}', '{lname}', DEFAULT, DEFAULT, DEFAULT);"""
+    p_id = 1 + countPlayers()
+    full_name = name.split(" ")
+    fname, lname = full_name
+    qry = base_qry.format(p_id=p_id, fname=fname, lname=lname)
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(qry)
+    cursor.close()
+    conn.commit()
+    conn.close()
 
 
 def playerStandings():
@@ -51,7 +83,14 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-    pass
+
+    conn = connect()
+    cursor = conn.cursor()
+    qry = """SELECT id, firstName, lastName, wins, losses FROM Players"""
+
+    cursor.execute(qry)
+    return sorted([(pid, " ".join([fn, ln]), w, l) for pid, fn, ln, w, l in cursor.fetchall()],
+                  key=lambda x: x[2])
 
 
 def reportMatch(winner, loser):

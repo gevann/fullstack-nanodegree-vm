@@ -56,12 +56,12 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
-    base_qry = """INSERT INTO Players (id, firstname, lastname, wins, losses, rank)
-    VALUES ({p_id}, '{fname}', '{lname}', DEFAULT, DEFAULT, DEFAULT);"""
-    p_id = 1 + countPlayers()
+    base_qry = """INSERT INTO Players (firstname, lastname, wins, losses, rank)
+    VALUES ('{fname}', '{lname}', DEFAULT, DEFAULT, DEFAULT);"""
+    # p_id = 1 + countPlayers()
     full_name = name.split(" ")
     fname, lname = full_name
-    qry = base_qry.format(p_id=p_id, fname=fname, lname=lname)
+    qry = base_qry.format(fname=fname, lname=lname)
     conn = connect()
     cursor = conn.cursor()
     cursor.execute(qry)

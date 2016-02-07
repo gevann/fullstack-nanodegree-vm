@@ -8,23 +8,21 @@
 
 DROP TABLE IF EXISTS Players CASCADE;
 CREATE TABLE Players(
-    id INT,
+    id SERIAL PRIMARY KEY,
     firstName VARCHAR(15),
     lastName VARCHAR(50),
     wins INT DEFAULT 0,
     losses INT DEFAULT 0,
-    rank INT DEFAULT null,
-    PRIMARY KEY(id));
+    rank INT DEFAULT null);
 
 DROP TABLE IF EXISTS Matches CASCADE;
 CREATE TABLE Matches(
-    id INT,
+    id SERIAL PRIMARY KEY,
     winner INT DEFAULT null,
     loser INT DEFAULT null,
     round INT,
     FOREIGN KEY(winner) REFERENCES Players(id),
-    FOREIGN KEY(loser) REFERENCES Players(id),
-    PRIMARY KEY(id));
+    FOREIGN KEY(loser) REFERENCES Players(id));
 
 DROP TABLE IF EXISTS PlaysIn CASCADE;
 CREATE TABLE PlaysIn(

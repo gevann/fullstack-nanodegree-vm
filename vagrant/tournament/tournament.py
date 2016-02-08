@@ -6,6 +6,21 @@
 import psycopg2
 
 
+class Cursor():
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        self.conn = psycopg2.connect("dbname=tournament")
+        self.cursor = self.conn.cursor()
+        return self.cursor
+
+    def __exit__(self, exec_type, exec_val, exec_tb):
+        self.conn.commit()
+        self.cursor.close()
+        self.conn.close()
+
+
 def connect():
     """Connect to the PostgreSQL database.  Returns a database connection."""
     return psycopg2.connect("dbname=tournament")
@@ -13,37 +28,28 @@ def connect():
 
 def deleteMatches():
     """Remove all the match records from the database."""
-    qry = """TRUNCATE Matches CASCADE"""
-    conn = connect()
-    cursor = conn.cursor()
-    cursor.execute(qry)
-    cursor.close()
-    conn.commit()
-    conn.close()
-    return (cursor.close and conn.closed)
+    qry_del = """TRUNCATE Matches RESTART IDENTITY CASCADE"""
+    qry_players = """UPDATE Players
+    SET wins = 0, losses = 0
+    """
+    with Cursor() as cursor:
+        cursor.execute(qry_del)
+        cursor.execute(qry_players)
 
 
 def deletePlayers():
     """Remove all the player records from the database."""
-    qry = """TRUNCATE Players CASCADE"""
-    conn = connect()
-    cursor = conn.cursor()
-    cursor.execute(qry)
-    cursor.close()
-    conn.commit()
-    conn.close()
-    return (cursor.close and conn.closed)
+    qry = """TRUNCATE Players RESTART IDENTITY CASCADE"""
+    with Cursor() as cursor:
+        cursor.execute(qry)
 
 
 def countPlayers():
     """Returns the number of players currently registered."""
     qry = """SELECT COUNT(*) FROM Players"""
-    conn = connect()
-    cursor = conn.cursor()
-    cursor.execute(qry)
-    results = cursor.fetchone()
-    cursor.close()
-    conn.close()
+    with Cursor() as cursor:
+        cursor.execute(qry)
+        results = cursor.fetchone()
     return results[0]
 
 
@@ -58,16 +64,11 @@ def registerPlayer(name):
     """
     base_qry = """INSERT INTO Players (firstname, lastname, wins, losses, rank)
     VALUES ('{fname}', '{lname}', DEFAULT, DEFAULT, DEFAULT);"""
-    # p_id = 1 + countPlayers()
     full_name = name.split(" ")
-    fname, lname = full_name
-    qry = base_qry.format(fname=fname, lname=lname)
-    conn = connect()
-    cursor = conn.cursor()
-    cursor.execute(qry)
-    cursor.close()
-    conn.commit()
-    conn.close()
+    fname, lname = full_name if len(full_name) == 2 else [name, ""]
+    qry = base_qry.format(fname=fname.replace("'", "''"), lname=lname.replace("'", "''"))
+    with Cursor() as cursor:
+        cursor.execute(qry)
 
 
 def playerStandings():
@@ -84,13 +85,33 @@ def playerStandings():
         matches: the number of matches the player has played
     """
 
-    conn = connect()
-    cursor = conn.cursor()
     qry = """SELECT id, firstName, lastName, wins, losses FROM Players"""
+    with Cursor() as cursor:
+        cursor.execute(qry)
+        ret_val = sorted([(pid, " ".join([fn, ln]), w, w+l)
+                          for pid, fn, ln, w, l in cursor.fetchall()], key=lambda x: x[2],
+                         reverse=True)
 
-    cursor.execute(qry)
-    return sorted([(pid, " ".join([fn, ln]), w, l) for pid, fn, ln, w, l in cursor.fetchall()],
-                  key=lambda x: x[2])
+    n = len(ret_val)
+    i = 0
+    while i < n:
+        j = i
+        while j < n-1 and ret_val[i][2] == ret_val[j][2]:
+            j += 1
+        sublist = ret_val[i:j]
+        if len(sublist) > 1:
+            sublist = sortByOWM(sublist)
+            ret_val[i:j] = sublist
+        i = j + 1
+
+    return ret_val
+
+
+def sortByOWM(lst):
+    """Returns lst sorted by the OWM value"""
+
+    OWMS = [opponentMatchWins(p) for p, name, w, m in lst]
+    return [p for (owm, p) in sorted(zip(OWMS, lst), reverse=True)]
 
 
 def reportMatch(winner, loser):
@@ -100,7 +121,22 @@ def reportMatch(winner, loser):
       winner:  the id number of the player who won
       loser:  the id number of the player who lost
     """
-    pass
+
+    match_qry = """INSERT INTO Matches (winner, loser)
+    VALUES ('{w_id}', '{l_id}')""".format(w_id=winner, l_id=loser)
+
+    winner_qry = """UPDATE Players
+    SET wins = wins + 1
+    WHERE id = {w_id}""".format(w_id=winner)
+
+    loser_qry = """UPDATE Players
+    SET losses = losses + 1
+    WHERE id = {l_id}""".format(l_id=loser)
+
+    with Cursor() as cursor:
+        cursor.execute(match_qry)
+        cursor.execute(winner_qry)
+        cursor.execute(loser_qry)
 
 
 def swissPairings():
@@ -118,4 +154,36 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
-    pass
+
+    standings = [val for elem in playerStandings() for val in elem[:2]]
+    pairings = zip(*[iter(standings)]*4)
+
+    return pairings
+
+
+def opponentMatchWins(p):
+    '''Returns player p's oppenents match wins count'''
+
+    match_qry = """SELECT winner, loser
+    FROM Matches
+    WHERE winner = {pid}
+    OR
+    loser = {pid}"""
+
+    wins_qry = """SELECT wins FROM Players WHERE id = {pid}"""
+    OWM = 0
+    # conn = connect()
+    # cur = conn.cursor()
+
+    with Cursor() as cursor:
+        # this returns something
+        cursor.execute(match_qry.format(pid=p))
+        p_opps = [opp for tpl in cursor.fetchall() for opp in tpl if opp != p]
+
+        # sudden there are not tuples in the db??
+        for opp in p_opps:
+            qry = wins_qry.format(pid=opp)
+            cursor.execute(qry)
+            OWM += cursor.fetchone()[0]
+
+    return OWM

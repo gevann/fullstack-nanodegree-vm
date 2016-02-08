@@ -146,10 +146,55 @@ def testPairings():
                 "After one match, players with one win should be paired.")
     print "10. After one match, players with one win are properly paired."
 
+def testOWMSort():
+    deleteMatches()
+    deletePlayers()
+
+    registerPlayer("1")
+    registerPlayer("2")
+    registerPlayer("3")
+    registerPlayer("4")
+    registerPlayer("5")
+    registerPlayer("6")
+    registerPlayer("7")
+    registerPlayer("8")
+
+    standings = playerStandings()
+
+    reportMatch('1', '2')
+    reportMatch('3', '4')
+    reportMatch('5', '6')
+    reportMatch('7', '8')
+
+    standings = playerStandings()
+
+    reportMatch('1', '3')
+    reportMatch('2', '4')
+    reportMatch('5', '8')
+    reportMatch('6', '7')
+
+    standings = playerStandings()
+
+    known_standings = [
+        (1, '1 ', 2, 2),
+        (5, '5 ', 2, 2),
+        (3, '3 ', 1, 2),
+        (6, '6 ', 1, 2),
+        (2, '2 ', 1, 2),
+        (7, '7 ', 1, 2),
+        (4, '4 ', 0, 2),
+        (8, '8 ', 0, 2)
+    ]
+    if standings == known_standings:
+        print "11. After a tie is found, those players are sorted by their OWM scores."
+    else:
+        print "Player 1 should come before player 5 when they have a higher OWM score."
+
 
 if __name__ == '__main__':
     testCount()
     testStandingsBeforeMatches()
-    # testReportMatches()
-    # testPairings()
+    testReportMatches()
+    testPairings()
+    testOWMSort()
     print "Success!  All tests pass!"

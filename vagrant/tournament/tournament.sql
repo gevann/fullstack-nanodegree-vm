@@ -20,7 +20,6 @@ CREATE TABLE Matches(
     id SERIAL PRIMARY KEY,
     winner INT DEFAULT null,
     loser INT DEFAULT null,
-    round INT,
     FOREIGN KEY(winner) REFERENCES Players(id),
     FOREIGN KEY(loser) REFERENCES Players(id));
 

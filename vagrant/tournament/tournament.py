@@ -47,8 +47,8 @@ def registerPlayer(name):
       name: the player's full name (need not be unique).
     """
 
-    base_qry = """INSERT INTO Players (firstname, lastname, wins, losses, rank)
-    VALUES ('{fname}', '{lname}', DEFAULT, DEFAULT, DEFAULT);"""
+    qry = """INSERT INTO Players (firstname, lastname, wins, losses, rank)
+    VALUES ((%s), (%s), DEFAULT, DEFAULT, DEFAULT);"""
     full_name = name.split(" ")
 
     # Get the first and last name of the player. If name cannot be split
@@ -56,9 +56,8 @@ def registerPlayer(name):
     fname, lname = full_name if len(full_name) == 2 else [name, ""]
 
     # Names may have a single-quote in them, escape it:
-    qry = base_qry.format(fname=fname.replace("'", "''"), lname=lname.replace("'", "''"))
     with Cursor() as cursor:
-        cursor.execute(qry)
+        cursor.execute(qry, [fname, lname])
 
 
 def playerStandings():
@@ -78,26 +77,29 @@ def playerStandings():
     qry = """SELECT id, firstName, lastName, wins, losses FROM Players"""
     with Cursor() as cursor:
         cursor.execute(qry)
-        ret_val = sorted([(pid, " ".join([fn, ln]), w, w+l)
-                          for pid, fn, ln, w, l in cursor.fetchall()], key=lambda x: x[2],
-                         reverse=True)
+        standings = sorted([(pid, " ".join([fn, ln]), w, w+l)
+                            for pid, fn, ln, w, l in cursor.fetchall()], key=lambda x: x[2],
+                           reverse=True)
 
-    n = len(ret_val)
+    n = len(standings)
     i = 0
     while i < n:
         # Search the standings for ties
         # Break any ties found by sending all tied players
         # in a list to be sorted by the OWM scores
         j = i
-        while j < n-1 and ret_val[i][2] == ret_val[j][2]:
+        while j < n-1 and standings[i][2] == standings[j][2]:
             j += 1
-        sublist = ret_val[i:j]
-        if len(sublist) > 1:
-            sublist = sortByOWM(sublist)
-            ret_val[i:j] = sublist
+        tied_players = standings[i:j]
+
+        if len(tied_players) > 1:
+            # There are 2 or more tied players.
+            # Sort the sublist containing them by their OWM scores
+            OWM_sorted_players = sortByOWM(tied_players)
+            standings[i:j] = OWM_sorted_players
         i = j + 1
 
-    return ret_val
+    return standings
 
 
 def sortByOWM(lst):
@@ -116,20 +118,20 @@ def reportMatch(winner, loser):
     """
 
     match_qry = """INSERT INTO Matches (winner, loser)
-    VALUES ('{w_id}', '{l_id}')""".format(w_id=winner, l_id=loser)
+    VALUES ((%s), (%s))"""
 
     winner_qry = """UPDATE Players
     SET wins = wins + 1
-    WHERE id = {w_id}""".format(w_id=winner)
+    WHERE id = (%s)"""
 
     loser_qry = """UPDATE Players
     SET losses = losses + 1
-    WHERE id = {l_id}""".format(l_id=loser)
+    WHERE id = (%s)"""
 
     with Cursor() as cursor:
-        cursor.execute(match_qry)
-        cursor.execute(winner_qry)
-        cursor.execute(loser_qry)
+        cursor.execute(match_qry, [winner, loser])
+        cursor.execute(winner_qry, [winner])
+        cursor.execute(loser_qry, [loser])
 
 
 def swissPairings():
@@ -162,20 +164,20 @@ def opponentMatchWins(p):
 
     match_qry = """SELECT winner, loser
     FROM Matches
-    WHERE winner = {pid}
+    WHERE winner = (%s)
     OR
-    loser = {pid}"""
+    loser = (%s)"""
 
-    wins_qry = """SELECT wins FROM Players WHERE id = {pid}"""
+    wins_qry = """SELECT wins FROM Players WHERE id = (%s)"""
     OWM = 0
 
     with Cursor() as cursor:
-        cursor.execute(match_qry.format(pid=p))
+        cursor.execute(match_qry, [p, p])
         p_opps = [opp for tpl in cursor.fetchall() for opp in tpl if opp != p]
 
         for opp in p_opps:
-            qry = wins_qry.format(pid=opp)
-            cursor.execute(qry)
+            qry = wins_qry
+            cursor.execute(qry, [opp])
             OWM += cursor.fetchone()[0]
 
     return OWM

@@ -147,6 +147,8 @@ def testPairings():
     print "10. After one match, players with one win are properly paired."
 
 def testOWMSort():
+    """Test tie-breaking of ranked players through OWM scores."""
+
     deleteMatches()
     deletePlayers()
 

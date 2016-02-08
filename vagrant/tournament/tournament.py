@@ -2,11 +2,14 @@
 #
 # tournament.py -- implementation of a Swiss-system tournament
 #
+
+# import the custom Cursor class for usage in with statements:
 from Cursor import Cursor
 
 
 def deleteMatches():
     """Remove all the match records from the database."""
+
     qry_del = """TRUNCATE Matches RESTART IDENTITY CASCADE"""
     qry_players = """UPDATE Players
     SET wins = 0, losses = 0
@@ -18,6 +21,7 @@ def deleteMatches():
 
 def deletePlayers():
     """Remove all the player records from the database."""
+
     qry = """TRUNCATE Players RESTART IDENTITY CASCADE"""
     with Cursor() as cursor:
         cursor.execute(qry)
@@ -25,6 +29,7 @@ def deletePlayers():
 
 def countPlayers():
     """Returns the number of players currently registered."""
+
     qry = """SELECT COUNT(*) FROM Players"""
     with Cursor() as cursor:
         cursor.execute(qry)
@@ -41,10 +46,16 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
+
     base_qry = """INSERT INTO Players (firstname, lastname, wins, losses, rank)
     VALUES ('{fname}', '{lname}', DEFAULT, DEFAULT, DEFAULT);"""
     full_name = name.split(" ")
+
+    # Get the first and last name of the player. If name cannot be split
+    # into 2, set the last name as the empty string
     fname, lname = full_name if len(full_name) == 2 else [name, ""]
+
+    # Names may have a single-quote in them, escape it:
     qry = base_qry.format(fname=fname.replace("'", "''"), lname=lname.replace("'", "''"))
     with Cursor() as cursor:
         cursor.execute(qry)
@@ -74,6 +85,9 @@ def playerStandings():
     n = len(ret_val)
     i = 0
     while i < n:
+        # Search the standings for ties
+        # Break any ties found by sending all tied players
+        # in a list to be sorted by the OWM scores
         j = i
         while j < n-1 and ret_val[i][2] == ret_val[j][2]:
             j += 1
@@ -134,7 +148,10 @@ def swissPairings():
         name2: the second player's name
     """
 
+    # create a flat list of all players sorted by their standing
     standings = [val for elem in playerStandings() for val in elem[:2]]
+
+    # zip the flat list standings into a list of 4-tuples)
     pairings = zip(*[iter(standings)]*4)
 
     return pairings
@@ -151,15 +168,11 @@ def opponentMatchWins(p):
 
     wins_qry = """SELECT wins FROM Players WHERE id = {pid}"""
     OWM = 0
-    # conn = connect()
-    # cur = conn.cursor()
 
     with Cursor() as cursor:
-        # this returns something
         cursor.execute(match_qry.format(pid=p))
         p_opps = [opp for tpl in cursor.fetchall() for opp in tpl if opp != p]
 
-        # sudden there are not tuples in the db??
         for opp in p_opps:
             qry = wins_qry.format(pid=opp)
             cursor.execute(qry)

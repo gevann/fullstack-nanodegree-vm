@@ -161,14 +161,10 @@ def testOWMSort():
     registerPlayer("7")
     registerPlayer("8")
 
-    standings = playerStandings()
-
     reportMatch('1', '2')
     reportMatch('3', '4')
     reportMatch('5', '6')
     reportMatch('7', '8')
-
-    standings = playerStandings()
 
     reportMatch('1', '3')
     reportMatch('2', '4')
@@ -178,19 +174,19 @@ def testOWMSort():
     standings = playerStandings()
 
     known_standings = [
-        (1, '1 ', 2, 2),
-        (5, '5 ', 2, 2),
-        (3, '3 ', 1, 2),
-        (6, '6 ', 1, 2),
-        (2, '2 ', 1, 2),
-        (7, '7 ', 1, 2),
-        (4, '4 ', 0, 2),
-        (8, '8 ', 0, 2)
+        (1, '1 ', 2L, 2L),
+        (5, '5 ', 2L, 2L),
+        (6, '6 ', 1L, 2L),
+        (2, '2 ', 1L, 2L),
+        (3, '3 ', 1L, 2L),
+        (7, '7 ', 1L, 2L),
+        (4, '4 ', 0, 2L),
+        (8, '8 ', 0, 2L)
     ]
     if standings == known_standings:
         print "11. After a tie is found, those players are sorted by their OWM scores."
     else:
-        print "Player 1 should come before player 5 when they have a higher OWM score."
+        raise ValueError("Tied players not properly sorted by OWM scores.")
 
 
 if __name__ == '__main__':

@@ -15,10 +15,10 @@ DROP TABLE IF EXISTS Players CASCADE;
 CREATE TABLE Players(
     id SERIAL PRIMARY KEY,
     firstName VARCHAR(15),
-    lastName VARCHAR(50),
-    wins INT DEFAULT 0,
-    losses INT DEFAULT 0,
-    rank INT DEFAULT null);
+    lastName VARCHAR(50));
+    -- wins INT DEFAULT 0,
+    -- losses INT DEFAULT 0,
+    -- rank INT DEFAULT null);
 
 DROP TABLE IF EXISTS Matches CASCADE;
 CREATE TABLE Matches(

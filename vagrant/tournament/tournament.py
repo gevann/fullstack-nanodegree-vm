@@ -11,12 +11,8 @@ def deleteMatches():
     """Remove all the match records from the database."""
 
     qry_del = """TRUNCATE Matches RESTART IDENTITY CASCADE"""
-    qry_players = """UPDATE Players
-    SET wins = 0, losses = 0
-    """
     with Cursor() as cursor:
         cursor.execute(qry_del)
-        cursor.execute(qry_players)
 
 
 def deletePlayers():
@@ -47,8 +43,8 @@ def registerPlayer(name):
       name: the player's full name (need not be unique).
     """
 
-    qry = """INSERT INTO Players (firstname, lastname, wins, losses, rank)
-    VALUES ((%s), (%s), DEFAULT, DEFAULT, DEFAULT);"""
+    qry = """INSERT INTO Players (firstname, lastname)
+    VALUES ((%s), (%s));"""
     full_name = name.split(" ")
 
     # Get the first and last name of the player. If name cannot be split
@@ -74,16 +70,22 @@ def playerStandings():
         matches: the number of matches the player has played
     """
 
-    qry = """SELECT id, firstName, lastName, wins, losses FROM Players"""
+    qry = """WITH w AS (
+    SELECT winner AS id, COUNT(winner) AS wins FROM matches GROUP BY winner),
+    l AS (
+    SELECT loser AS id, COUNT(loser) AS losses FROM matches GROUP BY loser)
+    SELECT p.id, p.firstname, p.lastname, wins, losses FROM w FULL OUTER JOIN l ON (w.id = l.id)
+    RIGHT OUTER JOIN Players p ON (w.id = p.id OR l.id = p.id);"""
+
     with Cursor() as cursor:
         cursor.execute(qry)
-        standings = sorted([(pid, " ".join([fn, ln]), w, w+l)
+        standings = sorted([(pid, " ".join([fn, ln]), (w or 0), (w or 0) + (l or 0))
                             for pid, fn, ln, w, l in cursor.fetchall()], key=lambda x: x[2],
                            reverse=True)
 
     n = len(standings)
     i = 0
-    while i < n:
+    while i < n-1:
         # Search the standings for ties
         # Break any ties found by sending all tied players
         # in a list to be sorted by the OWM scores
@@ -97,7 +99,7 @@ def playerStandings():
             # Sort the sublist containing them by their OWM scores
             OWM_sorted_players = sortByOWM(tied_players)
             standings[i:j] = OWM_sorted_players
-        i = j + 1
+        i = j
 
     return standings
 
@@ -106,7 +108,7 @@ def sortByOWM(lst):
     """Returns lst sorted by the OWM value"""
 
     OWMS = [opponentMatchWins(p) for p, name, w, m in lst]
-    return [p for (owm, p) in sorted(zip(OWMS, lst), reverse=True)]
+    return [p for (owm, p) in sorted(zip(OWMS, lst), reverse=True, key=lambda x: x[0])]
 
 
 def reportMatch(winner, loser):
@@ -117,21 +119,12 @@ def reportMatch(winner, loser):
       loser:  the id number of the player who lost
     """
 
-    match_qry = """INSERT INTO Matches (winner, loser)
-    VALUES ((%s), (%s))"""
-
-    winner_qry = """UPDATE Players
-    SET wins = wins + 1
-    WHERE id = (%s)"""
-
-    loser_qry = """UPDATE Players
-    SET losses = losses + 1
-    WHERE id = (%s)"""
+    # qry = """INSERT INTO Matches (id, winner, loser)
+    # VALUES (DEFAULT, (%s), (%s))"""
+    qry = "INSERT INTO MATCHES VALUES (DEFAULT, %s, %s)"
 
     with Cursor() as cursor:
-        cursor.execute(match_qry, [winner, loser])
-        cursor.execute(winner_qry, [winner])
-        cursor.execute(loser_qry, [loser])
+        cursor.execute(qry, [winner, loser])
 
 
 def swissPairings():
@@ -168,7 +161,8 @@ def opponentMatchWins(p):
     OR
     loser = (%s)"""
 
-    wins_qry = """SELECT wins FROM Players WHERE id = (%s)"""
+    # wins_qry = """SELECT wins FROM Players WHERE id = (%s)"""
+    wins_qry = """SELECT COUNT(*) FROM Matches WHERE winner = (%s)"""
     OWM = 0
 
     with Cursor() as cursor:

@@ -4,14 +4,15 @@
 #
 
 # import the custom Cursor class for usage in with statements:
-from Cursor import Cursor
+from Database import Database
+from Database import Cursor
 
 
 def deleteMatches():
     """Remove all the match records from the database."""
 
     qry_del = """TRUNCATE Matches RESTART IDENTITY CASCADE"""
-    with Cursor() as cursor:
+    with Cursor(tournament_database) as cursor:
         cursor.execute(qry_del)
 
 
@@ -19,7 +20,7 @@ def deletePlayers():
     """Remove all the player records from the database."""
 
     qry = """TRUNCATE Players RESTART IDENTITY CASCADE"""
-    with Cursor() as cursor:
+    with Cursor(tournament_database) as cursor:
         cursor.execute(qry)
 
 
@@ -27,7 +28,7 @@ def countPlayers():
     """Returns the number of players currently registered."""
 
     qry = """SELECT COUNT(*) FROM Players"""
-    with Cursor() as cursor:
+    with Cursor(tournament_database) as cursor:
         cursor.execute(qry)
         results = cursor.fetchone()
     return results[0]
@@ -52,7 +53,7 @@ def registerPlayer(name):
     fname, lname = full_name if len(full_name) == 2 else [name, ""]
 
     # Names may have a single-quote in them, escape it:
-    with Cursor() as cursor:
+    with Cursor(tournament_database) as cursor:
         cursor.execute(qry, [fname, lname])
 
 
@@ -77,7 +78,7 @@ def playerStandings():
     SELECT p.id, p.firstname, p.lastname, wins, losses FROM w FULL OUTER JOIN l ON (w.id = l.id)
     RIGHT OUTER JOIN Players p ON (w.id = p.id OR l.id = p.id);"""
 
-    with Cursor() as cursor:
+    with Cursor(tournament_database) as cursor:
         cursor.execute(qry)
         standings = sorted([(pid, " ".join([fn, ln]), (w or 0), (w or 0) + (l or 0))
                             for pid, fn, ln, w, l in cursor.fetchall()], key=lambda x: x[2],
@@ -89,6 +90,9 @@ def playerStandings():
         # Search the standings for ties
         # Break any ties found by sending all tied players
         # in a list to be sorted by the OWM scores
+        # i the is index of the first player with score = x, and
+        # j is the index of the first player (sequencially from i) with score != x.
+        # This leaves us a slice of players [i:j], where each player as the same score.
         j = i
         while j < n-1 and standings[i][2] == standings[j][2]:
             j += 1
@@ -123,7 +127,7 @@ def reportMatch(winner, loser):
     # VALUES (DEFAULT, (%s), (%s))"""
     qry = "INSERT INTO MATCHES VALUES (DEFAULT, %s, %s)"
 
-    with Cursor() as cursor:
+    with Cursor(tournament_database) as cursor:
         cursor.execute(qry, [winner, loser])
 
 
@@ -165,7 +169,7 @@ def opponentMatchWins(p):
     wins_qry = """SELECT COUNT(*) FROM Matches WHERE winner = (%s)"""
     OWM = 0
 
-    with Cursor() as cursor:
+    with Cursor(tournament_database) as cursor:
         cursor.execute(match_qry, [p, p])
         p_opps = [opp for tpl in cursor.fetchall() for opp in tpl if opp != p]
 
@@ -175,3 +179,6 @@ def opponentMatchWins(p):
             OWM += cursor.fetchone()[0]
 
     return OWM
+
+
+tournament_database = Database('tournament', 'tournament.sql')
